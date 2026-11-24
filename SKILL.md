@@ -18,7 +18,7 @@ This works for any school board, university, college, entrance or professional e
 ## Workflow
 
 1. Intake: the target exam, who sets it, and the past-paper source
-2. Collect 5–20 years of real papers
+2. Collect 5–20 years of real papers, and the syllabus each was set under
 3. Map the pattern and topic-wise weightage
 4. Backtest: predict past papers blind, score, refine
 5. Predict the upcoming paper and write the mocks
@@ -115,12 +115,18 @@ Find all the papers first, then read them oldest first. Leave the most recent 1�
 **Reading**
 - Many sites host scans or image viewers. If text extraction or a fetch returns nothing usable, render the pages to images and read them, or open the viewer in a browser tool, scroll and zoom.
 - If a paper is only partly readable, use what you can read and mark it partial.
-- If the syllabus scheme changed within your range, note the year. Map old topics to the current syllabus and drop topics no longer in it.
+
+**Syllabus history**
+- Find the syllabus in force for every sitting in your range and for the upcoming exam. Boards and universities usually publish each year's syllabus, often with a list of deleted and added topics. For instructor-set courses, use each term's course outline.
+- Note every change: the year, and what it added, removed, renamed or moved between units. Give a renamed topic one name across all papers.
+- Keep questions on topics that were later removed. They're real questions from their year, and backtest rounds need them (Step 4). Filter by syllabus when you predict; never delete rows.
+- If an older year's syllabus can't be found, treat it as unchanged from the nearest year you have, and say so in the reliability section.
 
 **Recording**: one row per question in `paper_bank.csv`:
-`paper_id, session (e.g. 2023-Dec), setter, source_url, section, q_no, marks, unit, topic, question_type, format, repeat_of, text`
+`paper_id, session (e.g. 2023-Dec), setter, syllabus, source_url, section, q_no, marks, unit, topic, question_type, format, repeat_of, text`
 
 - `setter` is the instructor or exam body.
+- `syllabus` is the syllabus version the sitting was set under, e.g. `2023-24`.
 - `marks` is marks or points, whichever the paper uses.
 - `format` is MCQ, short, long, numerical, essay, case, coding, drawing, oral and so on.
 - `repeat_of` names an earlier question this one repeats verbatim or nearly so.
@@ -149,14 +155,17 @@ Compute everything with code (pandas or plain Python), not by eye. Run this firs
 **Topic-wise weightage**
 - For each unit or topic: marks per paper, average share of the total, range, and trend over the last 3–5 papers.
 - Weight by marks, not question count: one 10-mark question outweighs three 1-mark questions.
+- Average only over papers whose syllabus included the topic. A topic that entered the syllabus two papers ago and carried 8 marks both times averages 8, not 1.6 over ten papers.
+- Group topics into units the way the syllabus you're predicting for does, so a topic that moved units counts under its new one.
 
 **Question-type frequency**
-For each type, record the papers it appeared in (out of N), its usual section and marks, and the last session it appeared. Then label its signal:
+For each type, record the papers it appeared in (out of N, counting only papers whose syllabus included its topic), its usual section and marks, and the last session it appeared. Then label its signal:
 - **Fixed**: appears in at least 70% of papers, usually in the same section
 - **Rotating**: alternates with a sibling type (A one year, B the next)
 - **Rising**: rare early, frequent recently
-- **Fading**: absent from the last 3+ papers
-- **Never asked**: in the syllabus but never seen
+- **Fading**: still in the syllabus, but absent from the last 3+ papers
+- **Never asked**: in the syllabus for 3 or more papers, but never seen
+- **New in syllabus**: added by a syllabus change, with fewer than 3 papers set since. The papers can't show its weight yet, so this isn't the same as never asked.
 
 **Repeat rate**: the share of questions that repeat an earlier past question verbatim or nearly so. This varies widely between exams, so measure it rather than assume it.
 
@@ -171,11 +180,12 @@ This step is what makes the predictions trustworthy. Before predicting the real 
 - With fewer than 3 papers from the same setter, a backtest tells you almost nothing. Skip it, say so, and mark the predictions low-confidence.
 - Read and record every paper except the held-out ones. Find the held-out papers' URLs, but don't read their questions yet. If you must open one to confirm it's the right paper, look only at the header.
 - You may use a held-out paper's structure (sections, question counts, marks), since students know the pattern before their exam too. Its questions stay off-limits until scoring.
+- The same goes for its syllabus, which was public before that exam. Predict each held-out paper with the syllabus it was set under, not today's: leave out topics that syllabus had dropped, and give slots to topics it had added (default method below).
 - If the student's sample photo is itself one of the papers, don't hold it out.
 - If the held-out papers are already visible in the conversation, you can't be truly blind. Generate each blueprint mechanically, with code, from the earlier papers' data only. Note in the reliability section that the test was not fully blind.
 
 **Each round** (oldest held-out paper first)
-1. **Predict.** Using only papers dated before the held-out paper, write a blueprint with exactly as many question slots as that paper. Each slot is section + marks + topic + question_type; for question-bank exams, a slot is a bank item. Save it in `backtest_log.md` before you read the paper.
+1. **Predict.** Using only papers dated before the held-out paper, and only topics in the syllabus it was set under, write a blueprint with exactly as many question slots as that paper. Each slot is section + marks + topic + question_type; for question-bank exams, a slot is a bank item. Save it in `backtest_log.md` before you read the paper.
 2. **Reveal.** Read the held-out paper and add it to `paper_bank.csv`.
 3. **Score.** Match each actual question to at most one predicted slot, then compute:
    - **Type hit rate**, the main accuracy figure: marks of actual questions whose type was predicted ÷ total printed marks
@@ -183,15 +193,16 @@ This step is what makes the predictions trustworthy. Before predicting the real 
    - **Repeats caught**: how many of the actual verbatim repeats you predicted
 
    Because the blueprint has the same number of slots as the real paper, predicting everything can't inflate the score.
-4. **Diagnose** each miss in one line. Common causes: new topic, missed rotation, recency underweighted, pattern change, instructor change, or a type labelled too narrowly or too broadly.
+4. **Diagnose** each miss in one line. Common causes: syllabus change, new topic, missed rotation, recency underweighted, pattern change, instructor change, or a type labelled too narrowly or too broadly.
 5. **Refine** the method and log the change, e.g. "weight last 3 papers ×2", "treat A/B as a rotating pair", "Section C always draws from Units 3–4". Every refinement must be a general rule that could have been known before that paper. Never add a rule that just names a question you saw in it.
 6. **Move on** to the next held-out paper. The one you just scored joins the training data.
 
 **Default starting method** (the backtest tunes it)
-- Score each type by the number of papers it appeared in, with the last 3 papers counting double. For instructor-set exams, the current instructor's papers also count double.
+- Score each type by the share of papers it appeared in, out of the papers whose syllabus included its topic, with the last 3 papers counting double. For instructor-set exams, the current instructor's papers also count double.
 - For a rotating pair, predict the member that didn't appear last time.
 - Fill each section's slots with the highest-scoring types that usually appear there at those marks. Keep marks per unit close to each unit's average weightage.
 - If history shows new types every year, reserve 10–20% of slots for rising or never-asked types.
+- New-in-syllabus topics can't be scored reliably from the papers, because few or none were set under the syllabus that added them. Give them slots by the official unit-wise weightage, or by a sample paper for that syllabus published before the sitting, if either exists. Otherwise give each unit that gained topics at least one slot from them, and mark those slots low-confidence.
 
 **When to stop**
 - Target: a type hit rate of 90% or more on the held-out papers.
@@ -200,11 +211,13 @@ This step is what makes the predictions trustworthy. Before predicting the real 
 
 **Report two scores per held-out paper.** The **blind** score comes before any refinement from that paper; the **refined** score comes after. The blind score is the honest estimate of real-exam accuracy, so never report the refined score alone.
 
-Once the backtest is done, send the student a short chat update before building the PDFs: papers found, the pattern, the top-weightage topics and the blind/refined scores. It's useful on its own, and it lets them correct the scope early.
+If a held-out paper was the first sitting under a changed syllabus, label its scores `after syllabus change`. It's the best measured estimate of what a change costs, and the score to quote when the upcoming exam is also the first under a new syllabus.
+
+Once the backtest is done, send the student a short chat update before building the PDFs: papers found, the pattern, the top-weightage topics, the blind/refined scores, and any syllabus change that affects the upcoming exam. It's useful on its own, and it lets them correct the scope early.
 
 ## Step 5 — Predict the upcoming paper and write the mocks
 
-1. Apply the refined method to **all** papers to produce the final blueprint for the upcoming exam. Use the latest pattern and only in-scope topics.
+1. Apply the refined method to **all** papers to produce the final blueprint for the upcoming exam. Use the latest pattern and the upcoming exam's syllabus: only in-scope topics, with slots for any it added (Step 4).
 2. **Mock 1 is the most-likely paper**: the final blueprint, filled in.
 3. **Mocks 2…N** keep the real pattern and weightage, but use the next-most-likely options for rotating and uncertain slots, and different question types on the high-weight topics. Together the mocks should cover every Tier 1 and Tier 2 type (Step 7). If the student asks for more than about 5, tell them the later ones will overlap, then make them anyway.
 
@@ -238,12 +251,13 @@ Sections, in this order:
    - **Tier 1 — Must study**: in at least 70% of papers, or a high-confidence slot in the final blueprint
    - **Tier 2 — Should study**: 40–70%
    - **Tier 3 — If time permits**: appeared at least twice, or rising
+   - **New in syllabus**: a group of its own, studied like Tier 2 unless the official weightage, a sample paper or the papers since the change put it higher. Give official sample questions where there's no past one. No past papers means no evidence either way, so never put these under low priority.
    - **Low priority**: fading or never asked. These are still in the syllabus, so never say "skip".
 4. **Most expected questions**: the top 15–30 types, ranked, each with a real past question as an example.
 5. **Repeated questions**: questions that have already come word for word more than once.
 6. **Common mistakes** that lose marks on Tier 1 types.
 7. **Revision plan** for the time left, if the exam date is known. With one day left, cover Tier 1 only, in order.
-8. **How reliable is this?** The papers used (count and sessions), each held-out paper's blind and refined scores, the main misses and why, and any data gaps.
+8. **How reliable is this?** The papers used (count and sessions), each held-out paper's blind and refined scores, the main misses and why, and any data gaps. If the upcoming exam is the first under a changed syllabus, say so plainly: the backtest ran on papers set under the old one, so it likely overstates accuracy, most of all for the changed units.
 9. **Sources**: every paper used, with its URL.
 
 ## Step 8 — Check and deliver
@@ -260,7 +274,7 @@ Sections, in this order:
 Two cases end here: a student comes back after their exam, or someone asks you to test the skill on an exam that already happened ("predict CBSE 2026 from 2021–2025 and give me the accuracy"). Past papers and the real paper are public material, so find them yourself rather than asking for uploads.
 
 **Test on a past exam** (one run, nothing to attach)
-1. Treat the target exam as upcoming, with the day before it as the cut-off. Use only papers from before it (inside the user's window, if they gave one), plus official sample papers published before it.
+1. Treat the target exam as upcoming, with the day before it as the cut-off. Use only papers from before it (inside the user's window, if they gave one), plus official sample papers published before it and the syllabus it was set under.
 2. Run Steps 1–7 blind. Put a pre-target year in every search query, and skip any result about the target paper, its answer key or post-exam analysis. Every predicted question cites the earlier papers it comes from; anything uncited is `[Original]`.
 3. Freeze the prediction. Save the PDFs plus `prediction_blueprint.csv` (Mock 1, one row per question: q_no, section, marks, topic, question_type, evidence). Log each file's SHA-256 in `test_log.md`, and send the files to the user before going on.
 4. Only now find the real paper, from the official source first. Note its set or shift code; if several sets exist, score each one.
@@ -281,6 +295,7 @@ Two cases end here: a student comes back after their exam, or someone asks you t
 |---|---|
 | Central setter (boards, affiliating universities, national exams) | Usually the most predictable. Official sample papers, mark schemes and blueprints are often published, and the latest official sample usually defines the current pattern. |
 | Instructor-set course exams | The instructor matters more than the institution. Weight that instructor's papers most, and use practice exams, homework and lecture emphasis heavily. A new instructor means low confidence; say so. |
+| First sitting under a new or revised syllabus | Older papers still predict the unchanged topics. Added topics get slots from the official weightage or the new sample paper, and their own group in the important-topics PDF. The backtest ran on the old syllabus, so say it likely overstates accuracy. |
 | Internal tests in a centrally examined system (class tests, mid-sems) | Use the central end-of-term papers for in-scope units, any past internal papers, and the teacher's hints. Here hints outweigh frequency. |
 | Entrance and competitive exams | Many questions, rare exact repeats, several shifts. Predict at concept level: topic-wise weightage is the most valuable output. Expect lower type hit rates. |
 | Published question bank or ticket list | Rank the items by likelihood and give model answers for all of them, highest-ranked first. |
@@ -297,4 +312,5 @@ Two cases end here: a student comes back after their exam, or someone asks you t
 - Say a question "will definitely come". Give the evidence ("7 of 9 papers") and let the student decide.
 - Put out-of-scope topics in a mock.
 - Report a refined backtest score without the blind one.
+- Predict a backtest paper with a syllabus from after its sitting.
 - Do arithmetic in your head when the result goes into a PDF.
