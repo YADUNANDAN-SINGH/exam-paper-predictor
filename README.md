@@ -38,6 +38,8 @@ For every test paper it reports two scores:
 
 The target is 90% at question-type level, meaning 90% of the paper's marks come from question types it predicted. It reports whatever it actually achieves, because some exams don't repeat enough to hit that. In its first real test it reached 32.5% section by section and 66.4% anywhere in the paper ([results](#results)).
 
+**Syllabus changes:** each round uses the syllabus its test paper was set under, not today's, since students know the syllabus before the exam just like the pattern. Topics a change added have no past papers yet, so they get slots from the official weightage or sample paper and their own group in the important-topics PDF. If a test paper was the first after a change, its score is reported separately.
+
 ## Works for any university, any country
 
 - **Centrally set exams** (school boards, affiliating universities, national exams): it finds the official papers and models how the paper repeats from year to year.
@@ -146,6 +148,7 @@ Used it for a real exam? After the exam, ask Claude in the same chat to score th
 - Accuracy is measured separately for each exam by the backtest. It isn't promised.
 - Predicting the exact layout, meaning which question lands in which section, is the weakest part so far: 32.5% in the first real test, against 90.8% for the study list.
 - Confident predictions need at least 5 years of papers from the same setter. With fewer, it still works but labels the prediction low-confidence.
+- The first exam under a new syllabus is harder to predict. Added topics have no past papers, and the backtest ran on papers set under the old syllabus, so it tells you its accuracy is likely overstated.
 - A new instructor or a teacher-set class test is hard to predict. Your teacher's hints beat any statistics.
 - Some exams never release papers, including some licensing and professional exams. For those it builds practice papers from the official outline and makes no accuracy claims.
 - It doesn't host or redistribute papers. It reads them from their sources and links back to them.
